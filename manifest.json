@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Tusmo Helper",
+  "version": "1.0",
+  "description": "Aide à résoudre les grilles de Tusmo",
+
+  "icons": {
+    "48": "icons/tusmo.png"
+  },
+  "permissions": ["activeTab", "scripting"],
+
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://www.tusmo.xyz/*"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "action": {
+    "default_popup": "popup/popup.html"
+  }
+}
