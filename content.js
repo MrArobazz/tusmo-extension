@@ -1,17 +1,18 @@
-let dictionnary = [];
+let dictionary = [];
 
 fetch(browser.runtime.getURL('words.json'))
     .then(response => response.json())
     .then(data => {
-        dictionnary = data;
+        dictionary = data;
     })
-    .catch(err => console.error("Erreur de chargement du dictionnaire :", err));
+    .catch(err => console.error("Error loading dictionary :", err));
 
 const NB_ROWS = 6
 let NB_LETTERS;
 let no_attempt = 0;
 let not_those_letters = [];
 let misplaced_letters = {};
+let tried_words = [];
 let word = []
 
 /* ---- Utils ---- */
@@ -34,6 +35,7 @@ function getNewGridData() {
     no_attempt = 0;
     not_those_letters = [];
     misplaced_letters = {};
+    tried_words = [];
     word = Array.from({length: NB_LETTERS}, () => '');
     word[0] = cells[0].textContent.trim().toLowerCase();
 }
@@ -44,6 +46,7 @@ browser.runtime.onMessage.addListener((message) => {
         if (message.newUrl !== oldUrl) {
             oldUrl = message.newUrl;
             setTimeout(() => {
+                console.log("New game.");
                 getNewGridData();
             }, 1000);
         }
@@ -83,8 +86,10 @@ function isValidAttempt() {
 
 function processCurrentAttempt() {
     const currentLine = getActualLine();
+    tried_words.push(currentLine.map(cell => cell.letter).join(''));
+    console.log(tried_words);
     const temp_misplaced_letters = {};
-    // todo : il va spam les lettres mal placées au même endroit, il faudrait inscrire là où ce n'est pas le bon endroit
+
     currentLine.forEach((cell, index) => {
         const {letter, color} = cell;
 
@@ -130,7 +135,7 @@ function processCurrentAttempt() {
 
 function findPossibleWords() {
     const initialLetter = word[0].toLowerCase();
-    const candidates = dictionnary[NB_LETTERS]?.[initialLetter];
+    const candidates = dictionary[NB_LETTERS]?.[initialLetter];
 
     return candidates.filter(candidate => {
         for (let i = 0; i < NB_LETTERS; i++) {
@@ -151,9 +156,21 @@ function findPossibleWords() {
                 return false;
             }
         }
+
+        for (const word of tried_words) {
+            if (word === candidate) {
+                return false;
+            }
+        }
         return true;
     });
 
+}
+
+function isLastWordValid() {
+    const cell = getCellsFromDoc()[1];
+
+    return cell.textContent === '.';
 }
 
 
@@ -161,15 +178,16 @@ document.addEventListener('keydown', (event) => {
     if (event.key === 'Enter') {
         setTimeout(() => {
             if (isValidAttempt()) {
-                console.log("Essai numéro ", no_attempt);
                 processCurrentAttempt();
-                console.log("Mot reconstruit :", word);
-                console.log("Lettres mal placées :", misplaced_letters);
-                console.log("Lettres exclues :", not_those_letters);
-                const possibleWords = findPossibleWords();
-                console.log("Mots possibles :", possibleWords);
+                console.log("Possible words :", findPossibleWords());
+            } else if (no_attempt > 0) {
+                setTimeout(() => {
+                    if (isLastWordValid()) {
+                        getNewGridData();
+                    }
+                }, 1000);
             }
-        }, 500);
+        }, 700);
     }
 });
 
@@ -181,7 +199,7 @@ document.addEventListener('keydown', (event) => {
 // function createGridMatrix(flatGrid, nbcolumns, nbrows = NB_ROWS) {
 //     const matrix = [];
 //     for (let i = 0; i < nbrows; i++) {
-//         // Get nb elements from grid into a line of the matrix
+//         // Get nb elements from grid into a line of the matrix t
 //         matrix.push(flatGrid.slice(i * nbcolumns, (i + 1) * nbcolumns));
 //     }
 //     return matrix;
