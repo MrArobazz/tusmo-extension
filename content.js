@@ -1,3 +1,12 @@
+let dictionnary = [];
+
+fetch(browser.runtime.getURL('words.json'))
+    .then(response => response.json())
+    .then(data => {
+        dictionnary = data;
+    })
+    .catch(err => console.error("Erreur de chargement du dictionnaire :", err));
+
 const NB_ROWS = 6
 let NB_LETTERS;
 let no_attempt = 0;
@@ -26,7 +35,7 @@ function getNewGridData() {
     not_those_letters = [];
     misplaced_letters = {};
     word = Array.from({length: NB_LETTERS}, () => '');
-    word[0] = cells[0].textContent.trim().toUpperCase();
+    word[0] = cells[0].textContent.trim().toLowerCase();
 }
 
 let oldUrl = "https://www.tusmo.xyz/";
@@ -43,7 +52,7 @@ browser.runtime.onMessage.addListener((message) => {
 
 /* ---- Init and refresh ---- */
 
-/* ---- Enter keyevent ---- */
+/* ---- Get word from last attempt --- */
 
 function getColorFromCell(cell) {
     const content = cell.querySelector('.cell-content');
@@ -62,7 +71,7 @@ function getActualLine() {
 
     const line = cellsArray.slice(no_attempt * NB_LETTERS, (no_attempt + 1) * NB_LETTERS);
     return Array.from(line).map(cell => ({
-        letter: cell.textContent.trim().toUpperCase() || '.',
+        letter: cell.textContent.trim().toLowerCase() || '.',
         color: getColorFromCell(cell),
     }));
 }
@@ -114,6 +123,40 @@ function processCurrentAttempt() {
     no_attempt++;
 }
 
+/* ---- Get word from last attempt --- */
+
+
+/* ---- Find word ---- */
+
+function findPossibleWords() {
+    const initialLetter = word[0].toLowerCase();
+    const candidates = dictionnary[NB_LETTERS]?.[initialLetter];
+
+    return candidates.filter(candidate => {
+        for (let i = 0; i < NB_LETTERS; i++) {
+            if (word[i] && word[i] !== candidate[i]) {
+                return false;
+            }
+        }
+
+        for (const letter of not_those_letters) {
+            if (candidate.includes(letter)) {
+                return false;
+            }
+        }
+
+        for (const letter in misplaced_letters) {
+            const countInCandidate = (candidate.match(new RegExp(letter, 'g')) || []).length;
+            if (countInCandidate < misplaced_letters[letter]) {
+                return false;
+            }
+        }
+        return true;
+    });
+
+}
+
+
 document.addEventListener('keydown', (event) => {
     if (event.key === 'Enter') {
         setTimeout(() => {
@@ -123,11 +166,14 @@ document.addEventListener('keydown', (event) => {
                 console.log("Mot reconstruit :", word);
                 console.log("Lettres mal placées :", misplaced_letters);
                 console.log("Lettres exclues :", not_those_letters);
+                const possibleWords = findPossibleWords();
+                console.log("Mots possibles :", possibleWords);
             }
-        }, 300);
+        }, 500);
     }
 });
-/* ---- Enter keyevent ---- */
+
+/* ---- Find word ---- */
 
 
 /* ---- Dead functions ---- */
