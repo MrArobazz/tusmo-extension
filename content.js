@@ -35,7 +35,7 @@
 
         nbLetters = cells.length / NB_ROWS;
         no_attempt = 0;
-        not_those_letters = [];
+        not_those_letters = new Set();
         misplaced_letters = {};
         tried_words = [];
         word = Array.from({length: nbLetters}, () => '');
@@ -46,12 +46,25 @@
         return document.querySelector('.game-wrapper');
     }
 
-    const handle = setInterval(() => {
-        if (uiMounted()) {
-            clearInterval(handle);
-            getNewGridData();
+    let oldUrl = "https://www.tusmo.xyz/";
+    browser.runtime.onMessage.addListener((message) => {
+        if (message.type === "URL_CHANGED") {
+            if (message.newUrl !== oldUrl) {
+                oldUrl = message.newUrl;
+                console.log(oldUrl);
+                const handle = setInterval(() => {
+                    if (uiMounted()) {
+                        console.log("New game.");
+                        clearInterval(handle);
+                        getNewGridData();
+                    }
+                }, 500);
+                setTimeout(() => {
+                    clearInterval(handle);
+                },10000);
+            }
         }
-    }, 500);
+    })
 
     /* ---- Init and refresh ---- */
 
@@ -88,7 +101,7 @@
     function processCurrentAttempt() {
         const currentLine = getActualLine();
         tried_words.push(currentLine.map(cell => cell.letter).join(''));
-        console.log(tried_words);
+
         const temp_misplaced_letters = {};
 
         currentLine.forEach((cell, index) => {
@@ -110,9 +123,7 @@
                 else temp_misplaced_letters[letter] = 1;
             } else if (color === '-') {
                 if (!word.includes(letter) && !temp_misplaced_letters[letter]) {
-                    if (!not_those_letters.includes(letter)) {
-                        not_those_letters.push(letter);
-                    }
+                    not_those_letters.add(letter);
                 }
             }
         });
@@ -140,15 +151,11 @@
 
         return candidates.filter(candidate => {
             for (let i = 0; i < nbLetters; i++) {
-                if (word[i] && word[i] !== candidate[i]) {
-                    return false;
-                }
+                if (word[i] && word[i] !== candidate[i]) return false;
             }
 
-            for (const letter of not_those_letters) {
-                if (candidate.includes(letter)) {
-                    return false;
-                }
+            for (const letter of not_those_letters.values()) {
+                if (candidate.includes(letter)) return false;
             }
 
             for (const letter in misplaced_letters) {
@@ -158,12 +165,7 @@
                 }
             }
 
-            for (const word of tried_words) {
-                if (word === candidate) {
-                    return false;
-                }
-            }
-            return true;
+            return !tried_words.includes(candidate);
         });
 
     }
@@ -179,14 +181,18 @@
         return cell && cell.textContent !== undefined && cell.textContent.trim() !== '';
     }
 
+    let isProcessing = false;
     document.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
+        if (event.key === 'Enter' && !isProcessing) {
+            isProcessing = true;
             if (isValidAttempt()) {
                 const handle = setInterval(() => {
                     console.log("interval");
                     if (isReadyToParse()) {
                         clearInterval(handle);
                         processCurrentAttempt();
+                        console.log("Misplaced letters :", misplaced_letters);
+                        console.log("Not those letters :", not_those_letters);
                         console.log("Possible words :", findPossibleWords());
                     } else if (isThereANewGrid()) {
                         clearInterval(handle);
@@ -194,8 +200,11 @@
                         console.log("Word found. New grid loaded.");
                     }
                 }, 500);
+                setTimeout(() => {
+                    clearInterval(handle);
+                },10000);
             }
-
+            isProcessing = false;
         }
     })
 
