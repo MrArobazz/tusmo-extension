@@ -80,8 +80,9 @@
     }
 
     function isValidAttempt() {
-        const cell = getCellsFromDoc()[(no_attempt + 1) * nbLetters];
-        return cell && cell.textContent !== undefined && cell.textContent.trim() !== '';
+        const line = getActualLine();
+
+        return !line.some(cell => cell.letter === '.');
     }
 
     function processCurrentAttempt() {
@@ -167,44 +168,36 @@
 
     }
 
-    function isLastWordValid() {
+    function isThereANewGrid() {
         const cell = getCellsFromDoc()[1];
 
         return cell.textContent === '.';
     }
 
+    function isReadyToParse() {
+        const cell = getCellsFromDoc()[(no_attempt + 1) * nbLetters];
+        return cell && cell.textContent !== undefined && cell.textContent.trim() !== '';
+    }
 
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
-            setTimeout(() => {
-                if (isValidAttempt()) {
-                    processCurrentAttempt();
-                    console.log("Possible words :", findPossibleWords());
-                } else if (no_attempt > 0) {
-                    setTimeout(() => {
-                        if (isLastWordValid()) {
-                            getNewGridData();
-                        }
-                    }, 1000);
-                }
-            }, 700);
+            if (isValidAttempt()) {
+                const handle = setInterval(() => {
+                    console.log("interval");
+                    if (isReadyToParse()) {
+                        clearInterval(handle);
+                        processCurrentAttempt();
+                        console.log("Possible words :", findPossibleWords());
+                    } else if (isThereANewGrid()) {
+                        clearInterval(handle);
+                        getNewGridData();
+                        console.log("Word found. New grid loaded.");
+                    }
+                }, 500);
+            }
+
         }
-    });
+    })
 
     /* ---- Find word ---- */
-
-
-    /* ---- Dead functions ---- */
-// Converts the flat array got from html in matrix
-// function createGridMatrix(flatGrid, nbcolumns, nbrows = NB_ROWS) {
-//     const matrix = [];
-//     for (let i = 0; i < nbrows; i++) {
-//         // Get nb elements from grid into a line of the matrix t
-//         matrix.push(flatGrid.slice(i * nbcolumns, (i + 1) * nbcolumns));
-//     }
-//     return matrix;
-// }
-//
-
-    /* ---- Dead functions ---- */
 })()
